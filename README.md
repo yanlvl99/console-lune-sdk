@@ -1,4 +1,4 @@
-# Console API
+# Console Luau SDK
 
 > A powerful and elegant terminal output library for Luau/Lune with rich formatting, syntax highlighting, and interactive components.
 
@@ -9,9 +9,19 @@
 
 ## 📦 Installation
 
-### Step 1: Add to Your Project
+### Option 1: Install via Git Clone (Recommended)
 
-Copy the `Console` package to your project's packages directory:
+Clone the repository directly into your project:
+
+```bash
+# Navigate to your project directory
+cd YourProject
+
+# Clone the Console SDK
+git clone https://github.com/yanlvl99/console-lune-sdk.git Console
+```
+
+This will create the following structure:
 
 ```
 YourProject/
@@ -25,9 +35,7 @@ YourProject/
 └── your_script.luau
 ```
 
-### Step 2: Configure Alias
-
-Add the alias to your `.luaurc`:
+**Configure the alias** in your `.luaurc`:
 
 ```json
 {
@@ -36,6 +44,14 @@ Add the alias to your `.luaurc`:
   }
 }
 ```
+
+### Option 2: Manual Installation
+
+Alternatively, you can manually download and copy the `Console` package to your project's directory:
+
+1. Download the package from [GitHub](https://github.com/yanlvl99/console-lune-sdk)
+2. Extract and place it in your project
+3. Configure the alias as shown above
 
 ---
 
