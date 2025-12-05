@@ -1,4 +1,4 @@
-# Console Luau SDK
+# Console API
 
 > A powerful and elegant terminal output library for Luau/Lune with rich formatting, syntax highlighting, and interactive components.
 
@@ -191,9 +191,9 @@ Console.code(code: string, language: string?)
 | Lua/Luau | `lua`, `luau` | Keywords, strings, functions |
 | Python | `python`, `py` | Indentation-aware |
 | JavaScript | `javascript`, `js`, `typescript`, `ts` | Modern syntax |
-| **Kotlin** ⭐ | `kotlin`, `kt` | Data classes, coroutines |
-| **C#** ⭐ | `csharp`, `cs`, `c#` | LINQ, async/await |
-| **Swift** ⭐ | `swift` | Optionals, protocols |
+| Kotlin | `kotlin`, `kt` | Data classes, coroutines |
+| C# | `csharp`, `cs`, `c#` | LINQ, async/await |
+| Swift | `swift` | Optionals, protocols |
 | Java | `java` | Classes, interfaces |
 | C/C++ | `c`, `cpp`, `c++` | Pointers, templates |
 | Go | `go`, `golang` | Goroutines |
@@ -204,8 +204,6 @@ Console.code(code: string, language: string?)
 | SQL | `sql` | Queries |
 | HTML | `html` | Tags, attributes |
 | CSS | `css` | Properties, selectors |
-
-⭐ = Recently added with full support
 
 #### Color Scheme
 
@@ -460,7 +458,7 @@ Console.markdown(text: string)
 
 #### Supported Markdown
 
-- **Headings**: `#`, `##`, `###`
+- **Headings**: `#`, `##`, `###`, `####`
 - **Bold**: `**text**`
 - **Italic**: `*text*`
 - **Code**: `` `code` ``
@@ -468,8 +466,9 @@ Console.markdown(text: string)
 - **Blockquotes**: `> quote`
 - **Horizontal Rules**: `---`
 - **Links**: `[text](url)`
+- **Tables**: Markdown table syntax (see below)
 
-#### Example
+#### Example - Basic Markdown
 
 ```lua
 Console.markdown([[
@@ -497,6 +496,82 @@ This is **bold** text and this is *italic* text.
 #### Preview
 
 ![Markdown Rendering](./Console/images/markdown.png)
+
+---
+
+### Markdown Tables
+
+The `markdown()` function now includes automatic rendering of markdown tables with beautiful ASCII box-drawing characters.
+
+#### Features
+
+- **Automatic Detection**: Tables are automatically detected and rendered from markdown syntax
+- **Box Drawing**: Uses Unicode box-drawing characters (┌─┬─┐│├─┼─┤└─┴─┘)
+- **Smart Alignment**: Automatically aligns columns based on content width
+- **Emoji Support**: Correctly handles emoji width for proper alignment
+- **Formatting**: Supports inline markdown formatting (bold, italic, code) within cells
+- **Color Scheme**: 
+  - Cyan borders
+  - Yellow bold headers
+  - White cell content with formatting
+
+#### Markdown Table Syntax
+
+```markdown
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |
+```
+
+#### Example - Simple Table
+
+```lua
+Console.markdown([[
+| Language | Type | Year |
+|----------|------|------|
+| Lua | Scripting | 1993 |
+| Python | Multi-paradigm | 1991 |
+| Kotlin | JVM | 2011 |
+]])
+```
+
+#### Example - Table with Formatting
+
+```lua
+Console.markdown([[
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Syntax Highlighting** | ✅ | Supports 16+ languages |
+| **Markdown Tables** | ✅ | Auto-rendered with `box drawing` |
+| **Streaming** | ✅ | Real-time output support |
+| *Experimental* | ⚠️ | Work in progress |
+]])
+```
+
+#### Example - Complex Table with Emojis
+
+```lua
+Console.markdown([[
+| Tool | Speed | Features |
+|------|-------|----------|
+| 🚀 Lune | **Fast** | Runtime for Luau |
+| 🎨 Console | *Elegant* | Rich terminal output |
+| 📦 Package | ⭐⭐⭐ | Easy to use |
+]])
+```
+
+#### Preview
+
+![Markdown Table Rendering](./Console/images/markdown_table.png)
+
+#### Technical Notes
+
+- Tables require at least 3 lines (header, separator, data row)
+- Empty cells are supported
+- Column widths auto-adjust to content
+- Visual width calculation handles multi-byte characters (emojis, special chars)
+- Incomplete tables fall back to regular text rendering
 
 ---
 

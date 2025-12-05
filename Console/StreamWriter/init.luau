@@ -49,32 +49,71 @@ function StreamWriter.new(config: StreamConfig?): StreamWriter
     
     function writer:printTable()
         if #self.tableBuffer == 0 then return end
+        
+        -- Helper to strip markdown syntax (for size calculation)
+        local function stripMarkdown(content: string): string
+            local stripped = content
+            -- Remove backticks
+            stripped = stripped:gsub("`([^`]+)`", "%1")
+            -- Remove bold
+            stripped = stripped:gsub("%*%*(.-)%*%*", "%1")
+            -- Remove italic
+            stripped = stripped:gsub("%*(.-)%*", "%1")
+            return stripped
+        end
+        
+        -- Helper to format cell content
+        local function formatCell(content: string): string
+            local formatted = content
+            -- Apply backticks (code) - yellow color
+            formatted = formatted:gsub("`([^`]+)`", COLORS.yellow .. "%1" .. COLORS.reset)
+            -- Apply bold
+            formatted = formatted:gsub("%*%*(.-)%*%*", STYLES.bold .. "%1" .. COLORS.reset)
+            -- Apply italic
+            formatted = formatted:gsub("%*(.-)%*", STYLES.italic .. "%1" .. COLORS.reset)
+            return formatted
+        end
+        
         local colWidths = {}
         local cleanRows = {}
+        local rawRows = {}
         
         for _, rowRaw in ipairs(self.tableBuffer) do
             local cells = {}
-            for cell in rowRaw:gmatch("|([^|]*)") do 
-                table.insert(cells, cell:match("^%s*(.-)%s*$")) 
+            local rawCells = {}
+            -- Remove leading/trailing pipes and split
+            local rowLine = rowRaw:gsub("^%s*|%s*", ""):gsub("%s*|%s*$", "")
+            for cell in rowLine:gmatch("([^|]+)") do 
+                local trimmed = cell:match("^%s*(.-)%s*$")
+                if trimmed then
+                    table.insert(rawCells, stripMarkdown(trimmed))
+                    table.insert(cells, formatCell(trimmed))
+                end
             end
+            table.insert(rawRows, rawCells)
             table.insert(cleanRows, cells)
-            -- Use stripAnsi for width calculation
-            for i, cell in ipairs(cells) do 
-                colWidths[i] = math.max(colWidths[i] or 0, utf8.len(Utils.stripAnsi(cell)) or #cell) 
+            
+            -- Calculate widths based on RAW (unformatted) content
+            for i, cell in ipairs(rawCells) do 
+                colWidths[i] = math.max(colWidths[i] or 0, Utils.visualWidth(cell))
             end
         end
         
+        -- Filter out separator rows
         local validRows = {}
-        for _, cells in ipairs(cleanRows) do
+        local validRawRows = {}
+        for idx, cells in ipairs(rawRows) do
              local isSep = true
              for _, c in ipairs(cells) do 
-                 if c:gsub("%-", "") ~= "" and c ~= "" then 
+                 -- Check if cell contains only -, :, and whitespace
+                 if c:gsub("[%-:%s]", "") ~= "" then 
                      isSep = false 
                      break 
                  end 
              end
              if not isSep then 
-                 table.insert(validRows, cells) 
+                 table.insert(validRawRows, cells)
+                 table.insert(validRows, cleanRows[idx]) 
              end
         end
         if #validRows == 0 then self.tableBuffer = {}; return end
@@ -82,21 +121,41 @@ function StreamWriter.new(config: StreamConfig?): StreamWriter
         local totalWidth = 1 
         for _, w in ipairs(colWidths) do totalWidth = totalWidth + w + 3 end
         
+        -- Top border
         print(COLORS.cyan .. "┌" .. string.rep("─", totalWidth - 2) .. "┐" .. COLORS.reset)
+        
         for i, row in ipairs(validRows) do
             local line = COLORS.cyan .. "│" .. COLORS.reset
             for j = 1, #colWidths do
-                local w, content = colWidths[j] or 0, row[j] or ""
-                local plainContent = Utils.stripAnsi(content)
-                local contentLen = utf8.len(plainContent) or #plainContent
+                local w = colWidths[j] or 0
+                local content = row[j] or ""
+                local rawContent = validRawRows[i][j] or ""
+                local contentLen = Utils.visualWidth(rawContent)
                 local padding = w - contentLen
                 
-                if i == 1 then content = STYLES.bold .. COLORS.yellow .. content .. COLORS.reset end
+                if i == 1 then 
+                    -- Header row - add bold/yellow
+                    content = STYLES.bold .. COLORS.yellow .. content .. COLORS.reset 
+                end
                 line = line .. " " .. content .. string.rep(" ", padding) .. " " .. COLORS.cyan .. "│" .. COLORS.reset
             end
             print(line)
-            if i == 1 then print(COLORS.cyan .. "├" .. string.rep("─", totalWidth - 2) .. "┤" .. COLORS.reset) end
+            
+            -- Header separator after first row
+            if i == 1 then 
+                local sep = COLORS.cyan .. "├"
+                for j, w in ipairs(colWidths) do
+                    sep = sep .. string.rep("─", w + 2)
+                    if j < #colWidths then
+                        sep = sep .. "┼"
+                    end
+                end
+                sep = sep .. "┤" .. COLORS.reset
+                print(sep)
+            end
         end
+        
+        -- Bottom border
         print(COLORS.cyan .. "└" .. string.rep("─", totalWidth - 2) .. "┘" .. COLORS.reset)
         self.tableBuffer = {}
     end
@@ -118,9 +177,9 @@ function StreamWriter.new(config: StreamConfig?): StreamWriter
                 if self.config.boxedCode then
                     -- Header box logic
                     local blockLang = self.codeBlockLang :: string
-                    local headerLen = utf8.len(blockLang) or #blockLang
-                    local dashLen = math.max(0, self.boxWidth - headerLen - 5)
-                    print(COLORS.brightBlack .. "┌─ " .. COLORS.cyan .. blockLang .. " " .. COLORS.brightBlack .. " " .. string.rep("─", dashLen) .. "┐" .. COLORS.reset)
+                    local langLen = Utils.visualWidth(blockLang)
+                    local dashLen = math.max(0, self.boxWidth - langLen - 5)
+                    print(COLORS.brightBlack .. "┌─ " .. COLORS.cyan .. blockLang .. COLORS.brightBlack .. " " .. string.rep("─", dashLen) .. "┐" .. COLORS.reset)
                 else
                     -- No box
                 end
@@ -140,21 +199,40 @@ function StreamWriter.new(config: StreamConfig?): StreamWriter
             end
 
             while true do
-                local lineLen = utf8.len(currentLine) or #currentLine
-                if lineLen == 0 and #currentLine == 0 then
+                if currentLine == "" then
                     if line == "" then
                         print(COLORS.brightBlack .. "│ " .. string.rep(" ", maxContentWidth) .. " │" .. COLORS.reset)
                     end
                     break
                 end
                 
+                -- Calculate visual width and split if needed
                 local splitIdx = 0
-                local visualCount = 0
-                for p, c in utf8.codes(currentLine) do
-                     visualCount = visualCount + 1
-                     if visualCount > maxContentWidth then break end
-                     splitIdx = p + (utf8.charpattern:match(currentLine, p) and #utf8.charpattern:match(currentLine, p) or 1) - 1
+                local visualWidth = 0
+                local pos = 1
+                
+                while pos <= #currentLine do
+                    local charLen = 1
+                    local byte = string.byte(currentLine, pos)
+                    
+                    -- UTF-8 multi-byte character detection
+                    if byte >= 240 then charLen = 4
+                    elseif byte >= 224 then charLen = 3
+                    elseif byte >= 192 then charLen = 2
+                    end
+                    
+                    local char = currentLine:sub(pos, pos + charLen - 1)
+                    local charVisWidth = Utils.visualWidth(char)
+                    
+                    if visualWidth + charVisWidth > maxContentWidth then
+                        break
+                    end
+                    
+                    visualWidth = visualWidth + charVisWidth
+                    splitIdx = pos + charLen - 1
+                    pos = pos + charLen
                 end
+                
                 if splitIdx == 0 then splitIdx = #currentLine end
                 
                 local chunk = currentLine:sub(1, splitIdx)
@@ -163,7 +241,7 @@ function StreamWriter.new(config: StreamConfig?): StreamWriter
                 if chunk == "" then break end
                 
                 local highlighted = if self.config.syntaxHighlighting then Highlighter.highlight(chunk, self.codeBlockLang or "text") else chunk
-                local chunkVisibleLen = utf8.len(chunk) or #chunk
+                local chunkVisibleLen = Utils.visualWidth(chunk)
                 local padding = math.max(0, maxContentWidth - chunkVisibleLen)
                 
                 print(COLORS.brightBlack .. "│ " .. COLORS.reset .. highlighted .. string.rep(" ", padding) .. COLORS.brightBlack .. " │" .. COLORS.reset)

@@ -83,12 +83,14 @@ end
 Console.header = Components.header
 Console.divider = Components.divider
 Console.table = Components.table
+Console.apiTable = Components.apiTable
 Console.list = Components.list
 Console.numbered = Components.numbered
 Console.progress = Components.progress
 Console.spinner = Components.spinner
 Console.box = Components.box
 Console.markdown = Components.markdown
+
 
 -- Wrapped Components (respecting config)
 function Console.code(text: string, language: string?)

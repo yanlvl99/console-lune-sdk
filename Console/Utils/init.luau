@@ -69,6 +69,42 @@ function Utils.stripAnsi(str: string): string
     return str:gsub("\27%[[%d;]*m", "")
 end
 
+function Utils.visualWidth(str: string): number
+    -- Strip ANSI codes first
+    local clean = Utils.stripAnsi(str)
+    
+    local width = 0
+    for pos, codepoint in utf8.codes(clean) do
+        -- Emoji ranges (common emoji blocks)
+        -- Most emojis are width 2 in terminals
+        if (codepoint >= 0x1F300 and codepoint <= 0x1F9FF) or  -- Misc Symbols and Pictographs, Emoticons, etc
+           (codepoint >= 0x2600 and codepoint <= 0x27BF) or    -- Misc symbols
+           (codepoint >= 0x1F600 and codepoint <= 0x1F64F) or  -- Emoticons
+           (codepoint >= 0x1F680 and codepoint <= 0x1F6FF) or  -- Transport and Map
+           (codepoint >= 0x2700 and codepoint <= 0x27BF) or    -- Dingbats
+           (codepoint >= 0xFE00 and codepoint <= 0xFE0F) or    -- Variation Selectors
+           (codepoint >= 0x1F900 and codepoint <= 0x1F9FF) or  -- Supplemental Symbols
+           (codepoint >= 0x1FA70 and codepoint <= 0x1FAFF) or  -- Symbols and Pictographs Extended-A
+           (codepoint >= 0x2300 and codepoint <= 0x23FF) or    -- Miscellaneous Technical
+           (codepoint >= 0x2B50 and codepoint <= 0x2B55) or    -- Stars and geometric shapes  
+           (codepoint >= 0x3200 and codepoint <= 0x32FF) or    -- Enclosed CJK Letters and Months
+           (codepoint == 0x2714) or (codepoint == 0x2716) or   -- Check marks
+           (codepoint == 0x25A0) or (codepoint == 0x25A1) or   -- Squares
+           (codepoint >= 0x2190 and codepoint <= 0x21FF) or    -- Arrows
+           (codepoint >= 0x3000 and codepoint <= 0x303F) or    -- CJK Symbols
+           (codepoint >= 0x3040 and codepoint <= 0x309F) or    -- Hiragana
+           (codepoint >= 0x30A0 and codepoint <= 0x30FF) or    -- Katakana
+           (codepoint >= 0x4E00 and codepoint <= 0x9FFF) or    -- CJK Unified Ideographs
+           (codepoint >= 0xAC00 and codepoint <= 0xD7AF) then  -- Hangul Syllables
+            width = width + 2
+        else
+            width = width + 1
+        end
+    end
+    
+    return width
+end
+
 function Utils.getTerminalWidth(): number
     local width = 100
     
