@@ -325,46 +325,119 @@ function Console.highlightSyntax(line: string, language: string): string
     if language ~= "lua" and language ~= "luau" then
         return COLORS.white .. line .. COLORS.reset
     end
-    
-    local result = line
-    
-    local commentMatch = result:match("^(.-)%-%-(.*)$")
-    local codepart = result
-    local commentPart = ""
-    
-    if commentMatch then
-        local before, after = result:match("^(.-)%-%-(.*)$")
-        if before and after then
-            codepart = before
-            commentPart = COLORS.brightBlack .. "--" .. after .. COLORS.reset
-        end
-    end
+
+    local result = ""
+    local remaining = line
     
     local keywords = {
-        "local", "function", "end", "if", "then", "else", "elseif", 
-        "for", "while", "do", "repeat", "until", "return", "break",
-        "continue", "in", "not", "and", "or", "true", "false", "nil",
-        "type", "export", "self"
+        ["local"] = true, ["function"] = true, ["end"] = true, ["if"] = true, 
+        ["then"] = true, ["else"] = true, ["elseif"] = true, ["for"] = true, 
+        ["while"] = true, ["do"] = true, ["repeat"] = true, ["until"] = true, 
+        ["return"] = true, ["break"] = true, ["continue"] = true, ["in"] = true, 
+        ["not"] = true, ["and"] = true, ["or"] = true, ["true"] = true, 
+        ["false"] = true, ["nil"] = true, ["type"] = true, ["export"] = true, 
+        ["self"] = true
     }
-    
-    for _, kw in ipairs(keywords) do
-        local pattern = "([^%w_])" .. kw .. "([^%w_])"
-        local replacement = "%1" .. COLORS.magenta .. kw .. COLORS.reset .. "%2"
-        codepart = codepart:gsub(pattern, replacement)
-        
-        if codepart:sub(1, #kw) == kw and (codepart:sub(#kw + 1, #kw + 1):match("[^%w_]") or #codepart == #kw) then
-            codepart = COLORS.magenta .. kw .. COLORS.reset .. codepart:sub(#kw + 1)
+
+    while #remaining > 0 do
+        -- Check for comments
+        local commentStart = remaining:find("%-%-")
+        if commentStart then
+            -- Check if comment is not inside a string (simplistic check)
+            -- A proper parser is needed for perfect accuracy, but this improves basic rendering
+             -- For now, just prioritizing comment if it appears
+             -- If we want to be smarter, we should check what comes first: comment, string, or keyword
+        end
+
+        -- Find potential tokens: comment, string, number, identifier
+        local nearestMatch = nil
+        local nearestType = nil
+        local matchStart, matchEnd = nil, nil
+
+        -- 1. Comment
+        local cS, cE = remaining:find("%-%-.*$")
+        if cS then
+             nearestMatch = cS
+             nearestType = "comment"
+             matchStart, matchEnd = cS, cE
+        end
+
+        -- 2. Strings (double quotes)
+        local sS, sE = remaining:find('"[^"]*"')
+        if sS and (not nearestMatch or sS < nearestMatch) then
+            nearestMatch = sS
+            nearestType = "string"
+            matchStart, matchEnd = sS, sE
+        end
+
+        -- 3. Strings (single quotes)
+        local sqS, sqE = remaining:find("'[^']*'")
+        if sqS and (not nearestMatch or sqS < nearestMatch) then
+            nearestMatch = sqS
+            nearestType = "string"
+            matchStart, matchEnd = sqS, sqE
+        end
+
+        -- 4. Numbers
+        local nS, nE = remaining:find("%d+%.?%d*")
+        if nS and (not nearestMatch or nS < nearestMatch) then
+             -- Verify it's not part of an identifier (naive)
+             if nS == 1 or not remaining:sub(nS-1, nS-1):match("[%w_]") then
+                 nearestMatch = nS
+                 nearestType = "number"
+                 matchStart, matchEnd = nS, nE
+             end
+        end
+
+        -- 5. Identifiers (keywords or functions)
+        local iS, iE = remaining:find("[%a_][%w_]*")
+        if iS and (not nearestMatch or iS < nearestMatch) then
+            nearestMatch = iS
+            nearestType = "identifier"
+            matchStart, matchEnd = iS, iE
+        end
+
+        -- 6. Operators/Punctuation (generic catch to move forward if nothing else matches)
+        if not nearestMatch then
+             result = result .. remaining:sub(1, 1)
+             remaining = remaining:sub(2)
+        else
+             -- Append text before match
+             if (nearestMatch :: number) > 1 then
+                 result = result .. remaining:sub(1, (nearestMatch :: number) - 1)
+             end
+
+             local text = remaining:sub(matchStart :: number, matchEnd :: number)
+
+             if nearestType == "comment" then
+                 result = result .. COLORS.brightBlack .. text .. COLORS.reset
+                 remaining = "" -- Comment consumes rest of line
+             elseif nearestType == "string" then
+                 result = result .. COLORS.green .. text .. COLORS.reset
+                 remaining = remaining:sub((matchEnd :: number) + 1)
+             elseif nearestType == "number" then
+                 result = result .. COLORS.yellow .. text .. COLORS.reset
+                 remaining = remaining:sub((matchEnd :: number) + 1)
+             elseif nearestType == "identifier" then
+                 if keywords[text] then
+                     result = result .. COLORS.magenta .. text .. COLORS.reset
+                 elseif remaining:sub((matchEnd :: number) + 1, (matchEnd :: number) + 1) == "(" then
+                     -- Function call
+                     result = result .. COLORS.cyan .. text .. COLORS.reset
+                 else
+                     -- Normal variable/text
+                     result = result .. text
+                 end
+                 remaining = remaining:sub((matchEnd :: number) + 1)
+             else
+                 -- Should not happen with logic above, but fallback
+                 result = result .. text
+                 remaining = remaining:sub((matchEnd :: number) + 1)
+             end
         end
     end
-    
-    codepart = codepart:gsub('"([^"]*)"', COLORS.green .. '"%1"' .. COLORS.reset)
-    codepart = codepart:gsub("'([^']*)'", COLORS.green .. "'%1'" .. COLORS.reset)
-    
-    codepart = codepart:gsub("(%d+%.?%d*)", COLORS.yellow .. "%1" .. COLORS.reset)
-    
-    codepart = codepart:gsub("([%w_]+)%(", COLORS.cyan .. "%1" .. COLORS.reset .. "(")
-    
-    return codepart .. commentPart
+
+    return result
 end
 
 
