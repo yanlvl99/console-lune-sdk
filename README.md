@@ -6,7 +6,7 @@ A powerful terminal output module for Luau/Lune with colors, styles, and formatt
 
 ### Step 1: Copy the Package
 
-Copy the `GenAi` folder to your project's packages directory:
+Copy the `Console` folder to your project's packages directory:
 
 ```
 YourProject/
@@ -222,3 +222,4 @@ Console.box("Welcome to my app!\nEnjoy your stay.")
 ## License
 
 MIT
+
